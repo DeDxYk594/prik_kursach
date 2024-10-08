@@ -1,18 +1,20 @@
 from shapely.geometry import Point
 from shapely.ops import nearest_points
+import matplotlib.pyplot as plt
+import geopandas as gpd
 import math
 
 
-def find_point_C(radius_B, C, distance_BC, prevIteration=None):
-    x_c, y_c = C
-    center_B = Point(0, 0)
-    circle_B = center_B.buffer(radius_B)
+def find_point_C(radius_DC, B, distance_BC, prevIteration=None):
+    x_b, y_b = B
+    center_okr = Point(0, 0)
+    circle_okr = center_okr.buffer(radius_DC).exterior
 
-    point_C = Point(x_c, y_c)
-    circle_C = point_C.buffer(distance_BC)
+    point_C = Point(x_b, y_b)
+    circle_C = point_C.buffer(distance_BC).exterior
 
     # Найти пересечение окружностей
-    intersection = circle_B.intersection(circle_C)
+    intersection = circle_okr.intersection(circle_C)
 
     if intersection.is_empty:
         raise ValueError("Нет пересечений между окружностями.")
@@ -21,9 +23,9 @@ def find_point_C(radius_B, C, distance_BC, prevIteration=None):
     if intersection.geom_type == "Point":
         points = [intersection]
     elif intersection.geom_type == "MultiPoint":
-        points = list(intersection)
+        points = list(intersection.geoms)
     else:
-        raise ValueError("Неожиданный тип пересечения.")
+        raise ValueError(f"Неожиданный тип пересечения: {intersection.geom_type}")
 
     if not points:
         raise ValueError("Нет пересечений между окружностями.")
