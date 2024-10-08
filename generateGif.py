@@ -10,7 +10,7 @@ def thin_matrix(matrix):
     return matrix[::10]
 
 
-def create_animated_gif(X, Y, arr1, arr2, output_file="animation.gif", duration=2):
+def create_animated_gif(_X, _Y, arr1, arr2, output_file="animation.gif", duration=2):
     """
     Создает анимированный GIF из координат точек и соединений между ними.
 
@@ -21,29 +21,54 @@ def create_animated_gif(X, Y, arr1, arr2, output_file="animation.gif", duration=
     :param output_file: имя выходного файла
     :param duration: продолжительность анимации в секундах
     """
-    X = thin_matrix(X)
-    Y = thin_matrix(Y)
+    X = thin_matrix(_X)
+    Y = thin_matrix(_Y)
     num_frames = X.shape[0]
     temp_dir = tempfile.mkdtemp()
     frame_files = []
 
     # Настройка графика
-    fig, ax = plt.subplots()
+    fig, axes = plt.subplots(2, 1)
+    ax: plt.Axesa = axes[0]
+    ax_godograph: plt.Axes = axes[1]
     ax.set_aspect("equal")
     # Определение границ графика
     all_x = X.flatten()
     all_y = Y.flatten()
+    yMin = all_y.min()
+    yMax = all_y.max()
     margin = 1
-    ax.set_xlim(all_x.min() - margin, all_x.max() + margin)
-    ax.set_ylim(all_y.min() - margin, all_y.max() + margin)
-    plt.axis("off")  # Отключить оси
 
-    for t in range(num_frames):
+    def setupMechanism():
         ax.clear()
         ax.set_aspect("equal")
         ax.set_xlim(all_x.min() - margin, all_x.max() + margin)
-        ax.set_ylim(all_y.min() - margin, all_y.max() + margin)
-        plt.axis("off")
+        ax.set_ylim(yMin - margin, yMax + margin)
+        ax.axis("off")
+
+    def drawGodograph():
+        ax_godograph.clear()
+        ax_godograph.set_xlim(0, 360)
+        ax_godograph.set_ylim(yMin, yMax)
+        ax_godograph.plot(timespace, y_F)
+        ax_godograph.axis("off")
+        ax_godograph.grid(True,'both','both')
+        y_F_max = y_F.max()
+        y_F_min = y_F.min()
+
+        threshold = y_F_min + ((y_F_max - y_F_min) / 2)
+        ax_godograph.plot([0, 360], [threshold] * 2, c="black")
+
+        lowerBound = np.full(360, threshold)
+        upperBound = np.maximum(lowerBound, y_F)
+        ax_godograph.fill_between(timespace, lowerBound, upperBound, color="#66ff77")
+
+    timespace = np.linspace(0, 359, 360)
+    y_F: np.ndarray = _Y[:, 5]
+
+    for t in range(num_frames):
+        setupMechanism()
+        drawGodograph()
 
         # Рисование линий
         for i, j in zip(arr1, arr2):
@@ -52,9 +77,11 @@ def create_animated_gif(X, Y, arr1, arr2, output_file="animation.gif", duration=
         # Рисование точек
         ax.scatter(X[t], Y[t], s=50, c="blue", edgecolors="k")
 
+        ax_godograph.scatter([timespace[t * 10]], [_Y[t * 10, 5]], c="blue")
+
         # Сохранение кадра
         frame_path = os.path.join(temp_dir, f"frame_{t}.png")
-        plt.savefig(frame_path, bbox_inches="tight", pad_inches=0)
+        fig.savefig(frame_path, bbox_inches="tight", pad_inches=0)
         frame_files.append(frame_path)
 
     plt.close(fig)
@@ -75,21 +102,3 @@ def create_animated_gif(X, Y, arr1, arr2, output_file="animation.gif", duration=
     os.rmdir(temp_dir)
 
     print(f"Анимированный GIF сохранен как {output_file}.")
-
-
-# Пример использования
-if __name__ == "__main__":
-    # Пример данных
-    T = 60  # Количество кадров (например, 60 кадров для 2 секунд при 30 FPS)
-    N = 5  # Количество точек
-
-    # Генерация случайных движений точек
-    np.random.seed(0)
-    X = np.cumsum(np.random.randn(T, N), axis=0)
-    Y = np.cumsum(np.random.randn(T, N), axis=0)
-
-    # Определение соединений
-    arr1 = [0, 1, 2]
-    arr2 = [1, 2, 3]
-
-    create_animated_png(X, Y, arr1, arr2, output_file="animation.png", duration=2000)
