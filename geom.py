@@ -19,10 +19,7 @@ def find_point_C(radius_DC, B, distance_BC, prevIteration=None):
     if intersection.is_empty:
         raise ValueError("Нет пересечений между окружностями.")
 
-    # Получить все точки пересечения
-    if intersection.geom_type == "Point":
-        points = [intersection]
-    elif intersection.geom_type == "MultiPoint":
+    if intersection.geom_type == "MultiPoint":
         points = list(intersection.geoms)
     else:
         raise ValueError(f"Неожиданный тип пересечения: {intersection.geom_type}")
