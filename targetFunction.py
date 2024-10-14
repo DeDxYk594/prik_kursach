@@ -1,16 +1,19 @@
 import numpy as np
 
 
-def targetFunction(F_y: np.ndarray[float]) -> float:
+def targetFunction(F_y: np.ndarray[float]):
     """F_y - массив формы (360,) - каждому градусу угла поворота
     кривошипа соответствует координата шабота пресса y.
-    @returns значение целевой (оптимизируемой) функции"""
-    return (
-        1000 * upperTimeMetric(F_y)
-        # + fallAccelerationMetric(F_y)
-        # + riseAccelerationMetric(F_y)
-        + 1 * travelMetric(F_y)
+    @returns два списка:
+    первый список - список значений целевых подфункций, он будет просуммирован
+    второй список - список меток для первого списка
+    """
+    ret = (
+        (upperTimeMetric(F_y),),
+        ("upperTimeM",),
     )
+    # print(ret)
+    return ret
 
 
 def upperTimeMetric(F_y: np.ndarray) -> float:
@@ -33,7 +36,9 @@ def upperTimeMetric(F_y: np.ndarray) -> float:
     midpoint = (y_min + y_max) / 2
     count_below = np.sum(F_y < midpoint)
     total = F_y.size
-    return count_below / total
+    if count_below / total > 0.45:
+        return 999999
+    return (count_below / total) ** 2
 
 
 def travelMetric(F_y: np.ndarray) -> float:
@@ -55,7 +60,7 @@ def travelMetric(F_y: np.ndarray) -> float:
     y_min = np.min(F_y)
     y_max = np.max(F_y)
     travel = y_max - y_min
-    target_travel = 30.0  # mm
+    target_travel = 50.0  # mm
     if travel < target_travel:
         return (target_travel - travel) ** 4  # Sharp increase
     else:
