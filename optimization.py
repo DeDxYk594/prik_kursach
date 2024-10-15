@@ -1,4 +1,4 @@
-from simulation import SimulationParams, sim
+from simulation import SimulationParams, simulateRevolutePress
 from scipy.optimize import minimize
 from targetFunction import targetFunction
 import random
@@ -22,7 +22,7 @@ def objective_function(x):
 
     try:
         # Проводим симуляцию
-        X, Y = sim(params)
+        X, Y = simulateRevolutePress(params)
 
         # Вычисляем целевую функцию
         obj = targetFunction(Y[:, 5])
@@ -47,7 +47,7 @@ def optimize_function() -> tuple[str, np.ndarray]:
         if result.success:
             res = result.x
             params = SimulationParams()
-            X, Y = sim(params)
+            X, Y = simulateRevolutePress(params)
             obj = targetFunction(Y[:, 5])
             desc = repr(res)
             desc += str(list(zip(*obj)))
