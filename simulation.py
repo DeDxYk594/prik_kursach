@@ -6,6 +6,38 @@ from numba import njit
 deg = math.pi / 180.0
 
 
+@njit
+def get_intersections(
+    x0: np.array, y0: np.array, r0: float, x1: np.array, y1: np.array, r1: float
+):
+    # Вычисляем расстояние между центрами окружностей
+    d = np.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2)
+
+    # Проверяем условия для не пересекающихся окружностей
+    if np.any(d > r0 + r1):
+        raise ValueError("Окружности не пересекаются: слишком далеко друг от друга.")
+    if np.any(d < np.abs(r0 - r1)):
+        raise ValueError(
+            "Окружности не пересекаются: одна окружность находится внутри другой."
+        )
+    if np.any((d == 0) & (r0 == r1)):
+        raise ValueError("Окружности совпадают.")
+
+    # Вычисляем параметры a и h для нахождения точек пересечения
+    a = (r0**2 - r1**2 + d**2) / (2 * d)
+    h = np.sqrt(r0**2 - a**2)
+    x2 = x0 + a * (x1 - x0) / d
+    y2 = y0 + a * (y1 - y0) / d
+
+    x3 = x2 + h * (y1 - y0) / d
+    y3 = y2 - h * (x1 - x0) / d
+
+    x4 = x2 - h * (y1 - y0) / d
+    y4 = y2 + h * (x1 - x0) / d
+
+    return (x3, y3), (x4, y4)
+
+
 @njit()
 def simulateRevolutePress(params: np.array) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -38,21 +70,28 @@ def simulateRevolutePress(params: np.array) -> tuple[np.ndarray, np.ndarray]:
     x_B = A_x + AB_length * np.cos(angles)
     y_B = A_y + AB_length * np.sin(angles)
 
-    x_C = np.zeros((360))
-    y_C = np.zeros((360))
-
     x_D = np.full(360, 0)
     y_D = np.full(360, 0)
 
-    C_init = find_point_C(l_CD, (x_B[0], y_B[0]), l_BC)
-    x_C[0] = C_init[0]
-    y_C[0] = C_init[1]
+    x_C = np.zeros((360))
+    y_C = np.zeros((360))
 
+    (x3, y3), (x4, y4) = get_intersections(x_B, y_B, l_BC, x_D, y_D, l_CD)
+    if x3[0] > x4[0]:
+        x_C[0] = x3[0]
+    else:
+        x_C[0] = x4[0]
     for i in range(1, 360):
-        prevC = (x_C[i - 1], y_C[i - 1])
-        C_this = find_point_C(l_CD, (x_B[i], y_B[i]), l_BC, prevIteration=prevC)
-        x_C[i] = C_this[0]
-        y_C[i] = C_this[1]
+        prev_x = x_C[i - 1]
+        prev_y = y_C[i - 1]
+        d3 = math.sqrt((prev_x - x3[i]) ** 2 + (prev_y - y3[i]) ** 2)
+        d4 = math.sqrt((prev_x - x4[i]) ** 2 + (prev_y - y4[i]) ** 2)
+        if d3 > d4:
+            x_C[i] = x4[i]
+            y_C[i] = y4[i]
+        else:
+            x_C[i] = x4[i]
+            y_C[i] = y4[i]
 
     x_E = np.zeros((360))
     x_E = np.zeros((360))
@@ -78,57 +117,58 @@ def simulateRevolutePress(params: np.array) -> tuple[np.ndarray, np.ndarray]:
 
     x_F = np.full(360, x_E[0] - delta_2_x)
 
-    y_F = np.zeros(360)
-    for i in range(360):
-        y_F[i] = find_F_y(x_E[i], y_E[i], l_EF, x_F[0])
+    y_F = y_E - np.sqrt(-((x_E - x_F) ** 2) + l_EF**2)
 
-    # Создаем матрицы с повторяющимися координатами центра и вычисленными концами
+    # Создаем матрицы
     X = np.column_stack((x_A, x_B, x_C, x_D, x_E, x_F))
     Y = np.column_stack((y_A, y_B, y_C, y_D, y_E, y_F))
 
     return X, Y
 
 
-def simulateRevolutePress(params: np.array):
+@njit
+def simulatePrismaticPress(params: np.array):
     """
-    Делает симуляцию
-    Параметры:
-    offset (tuple или list): Вектор смещения центра вращения (x0, y0).
-    length (float): Длина отрезка.
+    Делает симуляцию пресса с поступательной кинематической парой.
 
     Возвращает:
     X (numpy.ndarray): Матрица координат X размером (360, 6).
     Y (numpy.ndarray): Матрица координат Y размером (360, 6).
-    Порядок точек по столбцам: A, B, C, D, E, F
+    Порядок точек (центров вращательных кинематических пар) по столбцам: A, B, C, D, E, F
     """
     A_x = params.DA_x
     A_y = params.DA_y
     AB_length = params.AB_length
-    углы = np.deg2rad(np.arange(0, 360))  # Углы в радианах от 0 до 359 градусов
+    angles = np.deg2rad(np.arange(0, 360))  # Углы в радианах от 0 до 359 градусов
 
     x_A = np.full(360, A_x)
     y_A = np.full(360, A_y)
 
-    x_B = A_x + AB_length * np.cos(углы)
-    y_B = A_y + AB_length * np.sin(углы)
-
-    x_C = np.zeros((360))
-    y_C = np.zeros((360))
+    x_B = A_x + AB_length * np.cos(angles)
+    y_B = A_y + AB_length * np.sin(angles)
 
     x_D = np.full(360, 0)
     y_D = np.full(360, 0)
 
-    C_init = find_point_C(params.DC_length, (x_B[0], y_B[0]), params.BC_length)
-    x_C[0] = C_init[0]
-    y_C[0] = C_init[1]
+    x_C = np.zeros((360))
+    y_C = np.zeros((360))
 
+    (x3, y3), (x4, y4) = get_intersections(x_B, y_B, l_BC, x_D, y_D, l_CD)
+    if x3[0] > x4[0]:
+        x_C[0] = x3[0]
+    else:
+        x_C[0] = x4[0]
     for i in range(1, 360):
-        prevC = (x_C[i - 1], y_C[i - 1])
-        C_this = find_point_C(
-            params.DC_length, (x_B[i], y_B[i]), params.BC_length, prevIteration=prevC
-        )
-        x_C[i] = C_this[0]
-        y_C[i] = C_this[1]
+        prev_x = x_C[i - 1]
+        prev_y = y_C[i - 1]
+        d3 = math.sqrt((prev_x - x3[i]) ** 2 + (prev_y - y3[i]) ** 2)
+        d4 = math.sqrt((prev_x - x4[i]) ** 2 + (prev_y - y4[i]) ** 2)
+        if d3 > d4:
+            x_C[i] = x4[i]
+            y_C[i] = y4[i]
+        else:
+            x_C[i] = x4[i]
+            y_C[i] = y4[i]
 
     x_E = np.zeros((360))
     x_E = np.zeros((360))
@@ -171,14 +211,8 @@ def simulateRevolutePress(params: np.array):
     y_F = (
         x_E * math.sin(-params.alpha_angle) + y_E + (math.sin(params.alpha_angle) * x_F)
     )
-
-    x_G = np.full((360), xeMax + (xeMax - xeMin) * 0.3)
-    y_G = (
-        x_E * math.sin(-params.alpha_angle) + y_E + (math.sin(params.alpha_angle) * x_G)
-    )
-
-    # Создаем матрицы с повторяющимися координатами центра и вычисленными концами
-    X = np.column_stack((x_A, x_B, x_C, x_D, x_E, x_F, x_G))
-    Y = np.column_stack((y_A, y_B, y_C, y_D, y_E, y_F, y_G))
+    # Создаем матрицы
+    X = np.column_stack((x_A, x_B, x_C, x_D, x_E, x_F))
+    Y = np.column_stack((y_A, y_B, y_C, y_D, y_E, y_F))
 
     return X, Y
