@@ -1,16 +1,18 @@
 import numpy as np
 
 
-def targetFunction(F_y: np.ndarray[float]):
+def targetFunction(F_y: np.ndarray[float]) -> tuple[float, str]:
     """F_y - массив формы (360,) - каждому градусу угла поворота
     кривошипа соответствует координата шабота пресса y.
-    @returns два списка:
-    первый список - список значений целевых подфункций, он будет просуммирован
-    второй список - список меток для первого списка
+    @returns два значения:
+    первое - сама целевая фукнция
+    второе - описание результата str
     """
+    utm = upperTimeMetric(F_y)
+    travelm = travelMetric(F_y)
     ret = (
-        (upperTimeMetric(F_y),),
-        ("upperTimeM",),
+        utm + travelm * 100,
+        f"Time above midpoint: {100-utm*100}%",
     )
     # print(ret)
     return ret

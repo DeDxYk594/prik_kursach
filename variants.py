@@ -1,4 +1,7 @@
 import numpy as np
+from simulation import simulatePrismaticPress, simulateRevolutePress
+from generateGif import create_animated_gif
+from targetFunction import targetFunction
 
 
 class Press:
@@ -34,19 +37,47 @@ class RevolutePairPress:
 
     @staticmethod
     def getBounds() -> np.ndarray:
-        raise NotImplementedError()
+        return np.array(
+            [
+                [10, 500],
+                [10, 500],
+                [10, 500],
+                [10, 500],
+                [10, 500],
+                [10, 500],
+                [10, 500],
+                [10, 500],
+                [-90, 90],
+            ]
+        )
 
     @staticmethod
     def isRevolutable(params: np.ndarray) -> bool:
-        raise NotImplementedError()
+        try:
+            x, y = simulateRevolutePress(params)
+            if np.isnan(x).any():
+                return False
+            if np.isnan(y).any():
+                return False
+            return True
+        except ValueError:
+            return False
 
     @staticmethod
     def simulate(params: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        raise NotImplementedError()
+        ret = simulateRevolutePress(params)
+        if np.isnan(ret[0]).any():
+            raise ValueError("NaN somewhere in x")
+        if np.isnan(ret[1]).any():
+            raise ValueError("NaN somewhere in y")
+        return ret
 
     @staticmethod
     def generateGif(params: np.array, saveTo: str) -> None:
-        raise NotImplementedError()
+        X, Y = simulateRevolutePress(params)
+        tf, desc2 = targetFunction(Y[:, 5])
+        desc1 = ",".join(map(str, params))
+        create_animated_gif(X, Y, [5], saveTo, desc1 + "\n" + desc2)
 
 
 class PrismaticPairPress:
@@ -55,23 +86,47 @@ class PrismaticPairPress:
     l_BC = params[1]           # мм
     l_CD = params[2]           # мм
     l_CE = params[3]           # мм
-    delta_1_x = params[7]      # мм
-    delta_1_y = params[7]      # мм
-    alpha_1_angle = params[8]  # градусов
-    alpha_2_angle = params[8]  # градусов
+    delta_1_x = params[4]      # мм
+    delta_1_y = params[5]      # мм
+    alpha_1_angle = params[6]  # градусов
+    alpha_2_angle = params[7]  # градусов
     """
+
     @staticmethod
-    def getBounds() -> np.ndarray:
-        raise NotImplementedError()
+    def getBounds() -> np.array:
+        return np.ndarray(
+            [
+                [10, 500],
+                [10, 500],
+                [10, 500],
+                [10, 500],
+                [10, 500],
+                [10, 500],
+                [-90, 90],
+                [-90, 90],
+            ]
+        )
 
     @staticmethod
     def isRevolutable(params: np.ndarray) -> bool:
-        raise NotImplementedError()
+        try:
+            simulatePrismaticPress(params)
+            return True
+        except ValueError:
+            return False
 
     @staticmethod
     def simulate(params: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        raise NotImplementedError()
+        ret = simulatePrismaticPress(params)
+        if np.isnan(ret[0]).any():
+            raise ValueError("NaN somewhere in x")
+        if np.isnan(ret[1]).any():
+            raise ValueError("NaN somewhere in y")
+        return ret
 
     @staticmethod
     def generateGif(params: np.array, saveTo: str) -> None:
-        raise NotImplementedError()
+        X, Y = simulatePrismaticPress(params)
+        tf, desc2 = targetFunction(Y[:, 5])
+        desc1 = ",".join(map(str, params))
+        create_animated_gif(X, Y, [5], saveTo, desc1 + "\n" + desc2)

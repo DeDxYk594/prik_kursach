@@ -10,7 +10,9 @@ def thin_matrix(matrix):
     return matrix[::10]
 
 
-def create_animated_gif(_X, _Y, output_file="animation.gif", text: str = ""):
+def create_animated_gif(
+    _X, _Y, points: list[int], output_file="animation.gif", text: str = ""
+):
     """
     Создает анимированный GIF из координат точек и соединений между ними.
 
@@ -93,10 +95,8 @@ def create_animated_gif(_X, _Y, output_file="animation.gif", text: str = ""):
             ax.plot([X[t, i], X[t, j]], [Y[t, i], Y[t, j]], "k-", linewidth=1)
 
         # Рисование точек
-        ax.scatter(X[t][0], Y[t][0], s=50, c="blue", edgecolors="k")
-        ax.scatter(X[t][1:3], Y[t][1:3], s=50, c="red", edgecolors="k")
-        ax.scatter(X[t][3], Y[t][3], s=50, c="blue", edgecolors="k")
-        ax.scatter(X[t][4:], Y[t][4:], s=50, c="red", edgecolors="k")
+        for pnt in points:
+            ax.scatter([X[t, i]], [Y[t, i]])
 
         ax_godograph.scatter(
             [timespace[t * 10]], [_Y[t * 10, 5] * 360 / (fyMax - fyMin)], c="blue"

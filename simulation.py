@@ -35,6 +35,14 @@ def get_intersections(
     x4 = x2 - h * (y1 - y0) / d
     y4 = y2 + h * (x1 - x0) / d
 
+    if (
+        np.isnan(x3).any()
+        or np.isnan(y3).any()
+        or np.isnan(x4).any()
+        or np.isnan(y4).any()
+    ):
+        raise ValueError("NaN somewhere in result")
+
     return (x3, y3), (x4, y4)
 
 
@@ -70,17 +78,20 @@ def simulateRevolutePress(params: np.array) -> tuple[np.ndarray, np.ndarray]:
     x_B = A_x + AB_length * np.cos(angles)
     y_B = A_y + AB_length * np.sin(angles)
 
-    x_D = np.full(360, 0)
-    y_D = np.full(360, 0)
+    x_D = np.zeros(360)
+    y_D = np.zeros(360)
 
-    x_C = np.zeros((360))
-    y_C = np.zeros((360))
+    x_C = np.zeros(360)
+    y_C = np.zeros(360)
 
     (x3, y3), (x4, y4) = get_intersections(x_B, y_B, l_BC, x_D, y_D, l_CD)
     if x3[0] > x4[0]:
         x_C[0] = x3[0]
+        y_C[0] = y3[0]
     else:
         x_C[0] = x4[0]
+        y_C[0] = y4[0]
+
     for i in range(1, 360):
         prev_x = x_C[i - 1]
         prev_y = y_C[i - 1]
@@ -93,8 +104,8 @@ def simulateRevolutePress(params: np.array) -> tuple[np.ndarray, np.ndarray]:
             x_C[i] = x4[i]
             y_C[i] = y4[i]
 
-    x_E = np.zeros((360))
-    x_E = np.zeros((360))
+    x_E = np.zeros(360)
+    x_E = np.zeros(360)
 
     x_BC_e = x_C - x_B
     y_BC_e = y_C - y_B
@@ -136,22 +147,28 @@ def simulatePrismaticPress(params: np.array):
     Y (numpy.ndarray): Матрица координат Y размером (360, 6).
     Порядок точек (центров вращательных кинематических пар) по столбцам: A, B, C, D, E, F
     """
-    A_x = params.DA_x
-    A_y = params.DA_y
-    AB_length = params.AB_length
+    l_AB = params[0]  # мм
+    l_BC = params[1]  # мм
+    l_CD = params[2]  # мм
+    l_CE = params[3]  # мм
+    delta_1_x = params[4]  # мм
+    delta_1_y = params[5]  # мм
+    alpha_1_angle = params[6]  # градусов
+    alpha_2_angle = params[7]  # градусов
+
     angles = np.deg2rad(np.arange(0, 360))  # Углы в радианах от 0 до 359 градусов
 
-    x_A = np.full(360, A_x)
-    y_A = np.full(360, A_y)
+    x_A = np.full(360, -delta_1_x)
+    y_A = np.full(360, delta_1_y)
 
-    x_B = A_x + AB_length * np.cos(angles)
-    y_B = A_y + AB_length * np.sin(angles)
+    x_B = x_A + np.cos(angles) * l_AB
+    y_B = y_A + np.sin(angles) * l_AB
 
-    x_D = np.full(360, 0)
-    y_D = np.full(360, 0)
+    x_D = np.zeros(360)
+    y_D = np.zeros(360)
 
-    x_C = np.zeros((360))
-    y_C = np.zeros((360))
+    x_C = np.zeros(360)
+    y_C = np.zeros(360)
 
     (x3, y3), (x4, y4) = get_intersections(x_B, y_B, l_BC, x_D, y_D, l_CD)
     if x3[0] > x4[0]:
@@ -170,24 +187,20 @@ def simulatePrismaticPress(params: np.array):
             x_C[i] = x4[i]
             y_C[i] = y4[i]
 
-    x_E = np.zeros((360))
-    x_E = np.zeros((360))
+    x_E = np.zeros(360)
+    x_E = np.zeros(360)
 
     x_BC_e = x_C - x_B
     y_BC_e = y_C - y_B
-    x_BC_e /= params.BC_length
-    y_BC_e /= params.BC_length
+    x_BC_e /= l_BC
+    y_BC_e /= l_BC
 
-    x_CE_e = x_BC_e * math.cos(params.BCE_inner_angle) + y_BC_e * math.sin(
-        params.BCE_inner_angle
-    )
+    x_CE_e = x_BC_e * math.cos(alpha_1_angle) + y_BC_e * math.sin(alpha_1_angle)
 
-    y_CE_e = -x_BC_e * math.sin(params.BCE_inner_angle) + y_BC_e * math.cos(
-        params.BCE_inner_angle
-    )
+    y_CE_e = -x_BC_e * math.sin(alpha_1_angle) + y_BC_e * math.cos(alpha_1_angle)
 
-    x_CE = x_CE_e * params.CE_length
-    y_CE = y_CE_e * params.CE_length
+    x_CE = x_CE_e * l_CE
+    y_CE = y_CE_e * l_CE
 
     x_E = x_C + x_CE
     y_E = y_C + y_CE
@@ -208,9 +221,7 @@ def simulatePrismaticPress(params: np.array):
     )
 
     x_F = np.full((360), xeMin - (xeMax - xeMin) * 0.3)
-    y_F = (
-        x_E * math.sin(-params.alpha_angle) + y_E + (math.sin(params.alpha_angle) * x_F)
-    )
+    y_F = x_E * math.sin(-alpha_2_angle) + y_E + (math.sin(alpha_2_angle) * x_F)
     # Создаем матрицы
     X = np.column_stack((x_A, x_B, x_C, x_D, x_E, x_F))
     Y = np.column_stack((y_A, y_B, y_C, y_D, y_E, y_F))
