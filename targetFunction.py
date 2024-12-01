@@ -1,20 +1,30 @@
 import numpy as np
+import math
 
 
-def targetFunction(F_y: np.ndarray[float]) -> tuple[float, str]:
+def targetFunction(X: np.ndarray, Y: np.ndarray) -> tuple[float, str]:
     """F_y - массив формы (360,) - каждому градусу угла поворота
     кривошипа соответствует координата шабота пресса y.
     @returns два значения:
     первое - сама целевая фукнция
     второе - описание результата str
     """
-    utm = upperTimeMetric(F_y)
+    F_y = Y[:, 5]
     travelm = travelMetric(F_y)
+    critical_sine = (
+        np.max(np.abs(X[:, 5] - X[:, 4]))
+        / math.sqrt((X[0][5] - X[0][4]) ** 2 + (Y[0][5] - Y[0][4]) ** 2)
+    ) * 0.01
+    upperTime = upperTimeMetric(F_y)
+    THR = 0.5
+    if upperTime > THR:
+        upperTime = THR + (upperTime - THR) ** 3
+    upperTime *= 0.1
+    tgt = critical_sine + travelm + upperTime
     ret = (
-        utm + travelm * 100,
-        f"Time above midpoint: {100-utm*100}%",
+        tgt,
+        f"travel={np.max(F_y)-np.min(F_y)}mm tgt={tgt} tm={travelm} cs={critical_sine} ut={upperTime}",
     )
-    # print(ret)
     return ret
 
 
@@ -35,12 +45,11 @@ def upperTimeMetric(F_y: np.ndarray) -> float:
     """
     y_min = np.min(F_y)
     y_max = np.max(F_y)
-    midpoint = (y_min + y_max) / 2
-    count_below = np.sum(F_y < midpoint)
+    midpoint = (y_min + 3 * y_max) / 4
+    count_above = np.sum(F_y > midpoint)
     total = F_y.size
-    if count_below / total > 0.45:
-        return 999999
-    return (count_below / total) ** 2
+
+    return 1 - count_above / total
 
 
 def travelMetric(F_y: np.ndarray) -> float:
@@ -62,86 +71,8 @@ def travelMetric(F_y: np.ndarray) -> float:
     y_min = np.min(F_y)
     y_max = np.max(F_y)
     travel = y_max - y_min
-    target_travel = 50.0  # mm
+    target_travel = 180.0  # mm
     if travel < target_travel:
         return (target_travel - travel) ** 4  # Sharp increase
     else:
-        return np.log1p(travel - target_travel) ** 2  # Gentle increase
-
-
-def fallAccelerationMetric(F_y: np.ndarray) -> float:
-    """
-    Measures the closeness of the average acceleration within a specific y range
-    to the acceleration due to gravity. The y range is from (y_min + 0.8 * travel)
-    to (y_min + 0.2 * travel), handling cyclic wrapping of the array.
-
-    Parameters:
-    ----------
-    F_y : np.ndarray
-        Array of y-coordinates corresponding to each degree of crank angle (shape: (360,)).
-
-    Returns:
-    -------
-    float
-        The absolute difference between the average acceleration and gravity.
-    """
-    y_min = np.min(F_y)
-    y_max = np.max(F_y)
-    travel = y_max - y_min
-    lower_bound = y_min + 0.2 * travel
-    upper_bound = y_min + 0.8 * travel
-
-    # Identify indices within the y range
-    indices = np.where((F_y >= lower_bound) & (F_y <= upper_bound))[0]
-    if indices.size == 0:
-        return np.inf  # Penalize if no points are in the range
-
-    # Calculate velocity and acceleration
-    delta_t = 1 / 72  # seconds
-    velocity = np.gradient(F_y, delta_t)
-    acceleration = np.gradient(velocity, delta_t)
-
-    # Handle cyclic indices
-    acceleration_in_range = acceleration[indices]
-    avg_acceleration = np.mean(acceleration_in_range)
-
-    g = 9.81  # m/s^2
-    return abs(avg_acceleration - g)
-
-
-def riseAccelerationMetric(F_y: np.ndarray) -> float:
-    """
-    Evaluates the peak acceleration within a specific y range.
-    Lower peak accelerations are better.
-
-    Parameters:
-    ----------
-    F_y : np.ndarray
-        Array of y-coordinates corresponding to each degree of crank angle (shape: (360,)).
-
-    Returns:
-    -------
-    float
-        The peak acceleration within the specified y range.
-    """
-    y_min = np.min(F_y)
-    y_max = np.max(F_y)
-    travel = y_max - y_min
-    lower_bound = y_min + 0.2 * travel
-    upper_bound = y_min + 0.8 * travel
-
-    # Identify indices within the y range
-    indices = np.where((F_y >= lower_bound) & (F_y <= upper_bound))[0]
-    if indices.size == 0:
-        return np.inf  # Penalize if no points are in the range
-
-    # Calculate velocity and acceleration
-    delta_t = 1 / 72  # seconds
-    velocity = np.gradient(F_y, delta_t)
-    acceleration = np.gradient(velocity, delta_t)
-
-    # Handle cyclic indices
-    acceleration_in_range = acceleration[indices]
-    peak_acceleration = np.max(np.abs(acceleration_in_range))
-
-    return peak_acceleration
+        return (travel - target_travel) ** 2  # Gentle increase

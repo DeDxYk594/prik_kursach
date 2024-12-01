@@ -18,7 +18,7 @@ class Press:
         raise NotImplementedError()
 
     @staticmethod
-    def generateGif(params: np.array, saveTo: str) -> None:
+    def generateGif(params: np.ndarray, saveTo: str) -> None:
         raise NotImplementedError()
 
 
@@ -40,13 +40,13 @@ class RevolutePairPress:
         return np.array(
             [
                 [10, 500],
-                [10, 500],
-                [10, 500],
-                [10, 500],
-                [10, 500],
-                [10, 500],
-                [10, 500],
-                [10, 500],
+                [10, 300],
+                [10, 300],
+                [10, 300],
+                [10, 300],
+                [10, 300],
+                [10, 300],
+                [10, 300],
                 [-90, 90],
             ]
         )
@@ -54,7 +54,7 @@ class RevolutePairPress:
     @staticmethod
     def isRevolutable(params: np.ndarray) -> bool:
         try:
-            x, y = simulateRevolutePress(params)
+            x, y = simulateRevolutePress(params, 360)
             if np.isnan(x).any():
                 return False
             if np.isnan(y).any():
@@ -64,8 +64,8 @@ class RevolutePairPress:
             return False
 
     @staticmethod
-    def simulate(params: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        ret = simulateRevolutePress(params)
+    def simulate(params: np.ndarray, steps: int) -> tuple[np.ndarray, np.ndarray]:
+        ret = simulateRevolutePress(params, steps)
         if np.isnan(ret[0]).any():
             raise ValueError("NaN somewhere in x")
         if np.isnan(ret[1]).any():
@@ -73,9 +73,9 @@ class RevolutePairPress:
         return ret
 
     @staticmethod
-    def generateGif(params: np.array, saveTo: str) -> None:
-        X, Y = simulateRevolutePress(params)
-        tf, desc2 = targetFunction(Y[:, 5])
+    def generateGif(params: np.ndarray, saveTo: str) -> None:
+        X, Y = simulateRevolutePress(params, 360)
+        tf, desc2 = targetFunction(X, Y)
         desc1 = ",".join(map(str, params))
         create_animated_gif(X, Y, [5], saveTo, desc1 + "\n" + desc2)
 
@@ -93,8 +93,8 @@ class PrismaticPairPress:
     """
 
     @staticmethod
-    def getBounds() -> np.array:
-        return np.ndarray(
+    def getBounds() -> np.ndarray:
+        return np.array(
             [
                 [10, 500],
                 [10, 500],
@@ -110,14 +110,14 @@ class PrismaticPairPress:
     @staticmethod
     def isRevolutable(params: np.ndarray) -> bool:
         try:
-            simulatePrismaticPress(params)
+            simulatePrismaticPress(params, 360)
             return True
         except ValueError:
             return False
 
     @staticmethod
-    def simulate(params: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        ret = simulatePrismaticPress(params)
+    def simulate(params: np.ndarray, steps: int) -> tuple[np.ndarray, np.ndarray]:
+        ret = simulatePrismaticPress(params, steps)
         if np.isnan(ret[0]).any():
             raise ValueError("NaN somewhere in x")
         if np.isnan(ret[1]).any():
@@ -125,8 +125,8 @@ class PrismaticPairPress:
         return ret
 
     @staticmethod
-    def generateGif(params: np.array, saveTo: str) -> None:
-        X, Y = simulatePrismaticPress(params)
-        tf, desc2 = targetFunction(Y[:, 5])
+    def generateGif(params: np.ndarray, saveTo: str) -> None:
+        X, Y = simulatePrismaticPress(params, 360)
+        tf, desc2 = targetFunction(X, Y)
         desc1 = ",".join(map(str, params))
         create_animated_gif(X, Y, [5], saveTo, desc1 + "\n" + desc2)
